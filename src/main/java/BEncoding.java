@@ -37,9 +37,8 @@ public class BEncoding {
         return DecodeNextObject(iterator);
     }
 
-    public static byte[] Encode(Object object) {
+    public static byte[] Encode(Object object) throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        //ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(object.toString().getBytes(StandardCharsets.UTF_8));
 
         EncodeNextObject(byteArrayOutputStream, object);
 
@@ -48,17 +47,17 @@ public class BEncoding {
 
     // Encoding methods
     
-    public static void EncodeNextObject(ByteArrayOutputStream byteArrayOutputStream, Object object) {
+    public static void EncodeNextObject(ByteArrayOutputStream byteArrayOutputStream, Object object) throws IOException {
         if (object instanceof byte[]) {
-            
+            EncodeByteArray(byteArrayOutputStream, (byte[]) object);
         } else if (object instanceof String) {
-            
+            EncodeString(byteArrayOutputStream, (String) object);
         } else if (object instanceof Long) {
-            
+            EncodeNumber(byteArrayOutputStream, (Long) object);
         } else if (object instanceof List<?> ) {
-            
+            EncodeList(byteArrayOutputStream, (List<Object>) object);
         } else if (object instanceof Map) {
-
+            EncodeMap(byteArrayOutputStream, (Map) object);
         } else {
             throw new IllegalArgumentException("Invalid object type");
         }
@@ -80,7 +79,7 @@ public class BEncoding {
         EncodeByteArray(byteArrayOutputStream, input.getBytes(StandardCharsets.UTF_8));
     }
 
-    public static void EncodeList(ByteArrayOutputStream byteArrayOutputStream, List<Object> input) {
+    public static void EncodeList(ByteArrayOutputStream byteArrayOutputStream, List<Object> input) throws IOException {
         byteArrayOutputStream.write(ListStart);
         for(Object o : input) {
             EncodeNextObject(byteArrayOutputStream, o);
@@ -91,13 +90,16 @@ public class BEncoding {
     public static void EncodeMap(ByteArrayOutputStream byteArrayOutputStream, Map<String, Object> input) throws IOException {
         byteArrayOutputStream.write(DictionaryStart);
 
-        List<Object> sortedKeys = input.keySet().stream()
+        List<String> sortedKeys = input.keySet().stream()
                         .sorted(Comparator.comparing(
                                 x -> x.getBytes(StandardCharsets.UTF_8),
                                 Arrays::compare
                         ))
-                        .collect(Collectors.toList());
-
+                        .toList();
+        for (String key : sortedKeys) {
+            EncodeString(byteArrayOutputStream, key);
+            EncodeNextObject(byteArrayOutputStream, input.get(key));
+        }
         byteArrayOutputStream.write(DictionaryEnd);
     }
 
