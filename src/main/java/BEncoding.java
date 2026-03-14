@@ -3,8 +3,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Iterator;
+import java.util.*;
 
 public class BEncoding {
 
@@ -16,42 +15,127 @@ public class BEncoding {
     private static final byte NumberEnd = "e".getBytes(StandardCharsets.UTF_8)[0];
     private static final byte ByteArrayDivider = ":".getBytes(StandardCharsets.UTF_8)[0];
 
+    private static byte currentByte;
+    private static byte previousByte;
+
+    private static byte moveIterator(Iterator<Byte> iterator) {
+        if (currentByte != 0) {
+            previousByte = currentByte;
+        }
+        currentByte = iterator.next();
+
+        return currentByte;
+    }
+
     public static Object Decode(Byte[] bytes) {
         Iterator<Byte> iterator = Arrays.stream(bytes).iterator();
-
-
-
-
+        moveIterator(iterator);
+        return DecodeNextObject(iterator);
     }
+
+    // Decoding methods----------------
 
     public static Object DecodeNextObject(Iterator<Byte> iterator) {
 
-        byte b = iterator.next();
-        if (b == DictionaryStart) {
+         if (currentByte == DictionaryStart) {
+             moveIterator(iterator);
             return DecodeDictionary(iterator);
         }
 
-        if (b == ListStart) {
+        if (currentByte == ListStart) {
             return DecodeList(iterator);
         }
 
-        if (b == NumberStart) {
+        if (currentByte == NumberStart) {
             return DecodeNumber(iterator);
         }
 
         return DecodeByteArray(iterator);
     }
 
-    public static long DecodeNumber(Iterator<Byte> iterator) {
-        StringBuilder stringBuilder = new StringBuilder();
-        while (iterator.hasNext()) {
-            byte b = iterator.next();
+    public static Map<String, Object> DecodeDictionary(Iterator<Byte> iterator) {
+        Map<String, Object> map = new HashMap<>();
+        List<String> keys = new ArrayList<>();
 
-            if(b == NumberEnd) {
+        while (iterator.hasNext()) {
+            if (currentByte == DictionaryEnd) {
                 break;
             }
 
-            stringBuilder.append((char) b);
+            String key = new String(DecodeByteArray(iterator),  StandardCharsets.UTF_8);
+            moveIterator(iterator);
+            Object value = DecodeNextObject(iterator);
+
+            keys.add(key);
+            map.put(key, value);
+            moveIterator(iterator);
+        }
+
+
+        List<String> sortedKeys = new ArrayList<>(keys);
+        Collections.sort(sortedKeys);
+        if(!sortedKeys.equals(keys)) {
+            throw new IllegalStateException("Error loading dictionary, keys are not sorted.");
+        }
+
+        return map;
+    }
+
+    public static byte[] DecodeByteArray(Iterator<Byte> iterator) {
+        List<Byte> lengthBytes = new ArrayList<>();
+
+        do {
+            if(currentByte == ByteArrayDivider) {
+                break;
+            }
+            lengthBytes.add(currentByte);
+            moveIterator(iterator);
+        }  while (iterator.hasNext());
+
+        String lengthString = getStringFromByteList(lengthBytes);
+
+        int length;
+        try {
+            length = Integer.parseInt(lengthString);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Unable to parse length");
+        }
+
+        byte[] bytes2 = new byte[length];
+
+        for  (int i = 0; i < length; i++) {
+            moveIterator(iterator);
+            bytes2[i] = currentByte;
+        }
+
+        return bytes2;
+    }
+
+    public static List<Object> DecodeList(Iterator<Byte> iterator) {
+        List<Object> list = new ArrayList<>();
+
+        while (iterator.hasNext()) {
+
+            byte b = iterator.next();
+            if(b == ListEnd) {
+                break;
+            }
+            list.add(iterator.next());
+        }
+
+        return list;
+    }
+
+    public static long DecodeNumber(Iterator<Byte> iterator) {
+        StringBuilder stringBuilder = new StringBuilder();
+        while (iterator.hasNext()) {
+           moveIterator(iterator);
+
+            if(currentByte == NumberEnd) {
+                break;
+            }
+
+            stringBuilder.append((char) currentByte);
         }
 
         return Long.parseLong(stringBuilder.toString());
@@ -71,6 +155,14 @@ public class BEncoding {
         }
 
         return Decode(newByteArray);
+    }
+
+    private static String getStringFromByteList(List<Byte> lengthBytes) {
+        byte[] bytes = new byte[lengthBytes.size()];
+        for (int i = 0; i < lengthBytes.size(); i++) {
+            bytes[i] = lengthBytes.get(i);
+        }
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
 

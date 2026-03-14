@@ -1,13 +1,8 @@
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-
-public class Main {
-
-    private static final byte test = "é".getBytes(StandardCharsets.UTF_8)[0];
-    private static final byte[] test2 = "é".getBytes(StandardCharsets.UTF_8);
-
-    public static void main(String[] args) {
-        System.out.println(test);
-        System.out.println(Arrays.toString(test2));
+void main() {
+    String input = "d8:announce33:http://192.168.1.72:6969/announce7:comment12:test comment10:created by18:qBittorrent v5.1.213:creation datei1773413412e4:infod6:lengthi3120e4:name15:random_text.txt12:piece lengthi16384e6:pieces20:¶‡\u0090´êëTâÑp\u0013æ/Ø\\¤ Úàóee";
+    Byte[] bytes = new Byte[input.length()];
+    for (int i = 0; i < input.length(); i++) {
+        bytes[i] = (byte) input.charAt(i);
     }
+    Object test = BEncoding.Decode(bytes);
 }
