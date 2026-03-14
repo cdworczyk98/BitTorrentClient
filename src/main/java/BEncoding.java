@@ -1,9 +1,13 @@
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class BEncoding {
 
@@ -31,6 +35,74 @@ public class BEncoding {
         Iterator<Byte> iterator = Arrays.stream(bytes).iterator();
         moveIterator(iterator);
         return DecodeNextObject(iterator);
+    }
+
+    public static byte[] Encode(Object object) {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        //ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(object.toString().getBytes(StandardCharsets.UTF_8));
+
+        EncodeNextObject(byteArrayOutputStream, object);
+
+        return byteArrayOutputStream.toByteArray();
+    }
+
+    // Encoding methods
+    
+    public static void EncodeNextObject(ByteArrayOutputStream byteArrayOutputStream, Object object) {
+        if (object instanceof byte[]) {
+            
+        } else if (object instanceof String) {
+            
+        } else if (object instanceof Long) {
+            
+        } else if (object instanceof List<?> ) {
+            
+        } else if (object instanceof Map) {
+
+        } else {
+            throw new IllegalArgumentException("Invalid object type");
+        }
+    }
+
+    public static void EncodeNumber(ByteArrayOutputStream byteArrayOutputStream, long input) throws IOException {
+        byteArrayOutputStream.write(NumberStart);
+        byteArrayOutputStream.write(String.valueOf(input).getBytes());
+        byteArrayOutputStream.write(NumberEnd);
+    }
+
+    public static void EncodeByteArray(ByteArrayOutputStream byteArrayOutputStream, byte[] body) throws IOException {
+        byteArrayOutputStream.write(String.valueOf(body.length).getBytes());
+        byteArrayOutputStream.write(ByteArrayDivider);
+        byteArrayOutputStream.write(body);
+    }
+
+    public static void EncodeString(ByteArrayOutputStream byteArrayOutputStream, String input) throws IOException {
+        EncodeByteArray(byteArrayOutputStream, input.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public static void EncodeList(ByteArrayOutputStream byteArrayOutputStream, List<Object> input) {
+        byteArrayOutputStream.write(ListStart);
+        for(Object o : input) {
+            EncodeNextObject(byteArrayOutputStream, o);
+        }
+        byteArrayOutputStream.write(ListEnd);
+    }
+
+    public static void EncodeMap(ByteArrayOutputStream byteArrayOutputStream, Map<String, Object> input) throws IOException {
+        byteArrayOutputStream.write(DictionaryStart);
+
+        List<Object> sortedKeys = input.keySet().stream()
+                        .sorted(Comparator.comparing(
+                                x -> x.getBytes(StandardCharsets.UTF_8),
+                                Arrays::compare
+                        ))
+                        .collect(Collectors.toList());
+
+        byteArrayOutputStream.write(DictionaryEnd);
+    }
+
+    public static void EncodeToFile(Object object, String filePath) throws IOException {
+        Files.write(Paths.get(filePath), Encode(object));
     }
 
     // Decoding methods----------------
