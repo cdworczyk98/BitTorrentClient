@@ -1,6 +1,9 @@
 import lombok.Getter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +44,7 @@ public class Torrent {
     public long downloaded; //needs constructor
     public long left; //needs constructor
 
-    private final byte[] infoHash = new byte[20];
+    private byte[] infoHash = new byte[20];
     private  String hexStringInfoHash; //needs constructor
     private String urlSafeStringInfoHash; //needs constructor
 
@@ -49,7 +52,7 @@ public class Torrent {
 
     private Object[] fileWriterLocks;
 
-    public Torrent(String name, String location, List<FileItem> files, List<String> trackers, int piecesSize, byte[] pieceHashes, int blockSize) throws IOException {
+    public Torrent(String name, String location, List<FileItem> files, List<String> trackers, int piecesSize, byte[] pieceHashes, int blockSize) throws IOException, NoSuchAlgorithmException {
         this.name = name;
         this.downloadDirectory = location;
         this.files = files;
@@ -92,7 +95,21 @@ public class Torrent {
 
         Object info = TorrentInfoToBEncodingObject(this);
         byte[] bytes = BEncoding.Encode(info);
-        infoHash = DigestUtils.sha1Hex("my string")
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        md.update(bytes);
+        byte[] digest = md.digest();
+
+        StringBuilder hexString = new StringBuilder();
+
+        for (byte b : digest) {
+            hexString.append(String.format("%02x", b));
+        }
+
+        this.infoHash = hexString.toString().getBytes(StandardCharsets.UTF_8);
+
+        for (int i = 0; i < this.pieceCount; i++) {
+            Verify(i);
+        }
     }
 
     public int getPieceSize(int piece) {
