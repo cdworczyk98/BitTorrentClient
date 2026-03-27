@@ -1,3 +1,6 @@
+import lombok.Getter;
+
+@Getter
 public class FileItem {
 
     private String path;

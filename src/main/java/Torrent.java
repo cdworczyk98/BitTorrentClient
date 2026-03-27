@@ -1,12 +1,18 @@
 import lombok.Getter;
 
-import java.io.IOException;
+import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 @Getter
 public class Torrent {
@@ -137,5 +143,73 @@ public class Torrent {
     public int getBlockCount(int piece) {
         return (int) (Math.ceil(getPieceSize(piece) / (double) blockSize));
     }
+
+    public byte[] read(long start, int length) throws IOException {
+        long end = start + length;
+        byte[] buffer = new byte[length];
+
+        for (int i=0; i<files.size(); i++)
+        {
+            if ((start < files.getFirst().getOffset() && end < files.get(i).getOffset()) || (start > files.get(i).getOffset() + files.size() && end > files.get(i).getOffset() + files.get(i).getSize()))
+                continue;
+
+            String filePath = downloadDirectory + "/" + fileDirectory + files.get(i).getPath();
+
+            File file = new File(filePath);
+            if (!file.exists()) {
+                return  null;
+            }
+
+            long fstart = Math.max(0, start - files.get(i).getOffset());
+            long fend = Math.min(end - files.get(i).getOffset(), files.get(i).getSize());
+            int flength = (int) (fend - fstart);
+            int bstart = Math.max(0, (int) (files.get(i).getOffset() - start));
+
+            try(FileInputStream stream = new FileInputStream(filePath); FileChannel channel = stream.getChannel()) {
+                channel.position(fstart);
+                ByteBuffer bb = ByteBuffer.wrap(buffer, bstart, flength);
+                channel.read(bb);
+            }
+
+        }
+
+        return buffer;
+    }
+
+    public void write(long start, byte[] bytes) throws IOException {
+        long end = start + bytes.length;
+
+        for (int i = 0; i < files.size(); i++)
+        {
+            if ((start < files.get(i).getOffset() && end < files.get(i).getOffset()) ||
+                    (start > files.get(i).getOffset() + files.get(i).getSize() && end > files.get(i).getOffset() + files.get(i).getSize()))
+                continue;
+
+            String filePath = downloadDirectory + "/" + fileDirectory + files.get(i).getPath();
+
+            String dir = new File(filePath).getParent();
+            if (!Files.isDirectory(Paths.get(dir))) {
+                Files.createDirectories(Paths.get(dir));
+            }
+
+            synchronized (fileWriterLocks[i])
+            {
+                try(RandomAccessFile raf = new RandomAccessFile(filePath, "rw"); FileChannel channel = raf.getChannel()) {
+                {
+                    long fstart = Math.max(0, start - files.get(i).getOffset());
+                    long fend = Math.min(end - files.get(i).getOffset(), files.get(i).getSize());
+                    int flength = (int) (fend - fstart);
+                    int bstart = Math.max(0, (int) (files.get(i).getOffset() - start));
+
+                    channel.position(fstart);
+                    ByteBuffer bb = ByteBuffer.wrap(bytes, bstart, flength);
+                    while (bb.hasRemaining()) {
+                        channel.write(bb);
+                    }
+                }
+            }
+        }
+    }
+        }
 
 }
